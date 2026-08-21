@@ -1,0 +1,40 @@
+name: FPL data feed
+
+# Publishes a fresh FPL Draft data snapshot to the `data` branch for the
+# zoryaanalytics.com/fpldraft dashboard (the FPL API blocks cross-origin
+# browser requests, so the page reads this snapshot from GitHub's CDN).
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fpl-data
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch FPL data
+        run: node scripts/fetch-fpl-data.mjs
+      - name: Publish snapshot to data branch
+        run: |
+          mkdir "$RUNNER_TEMP/feed" && cd "$RUNNER_TEMP/feed"
+          git init -q -b data
+          cp "$GITHUB_WORKSPACE/snapshot.json" .
+          git add snapshot.json
+          git -c user.name=fpl-data-bot -c user.email=actions@users.noreply.github.com \
+            commit -q -m "FPL data snapshot $(date -u +%FT%TZ)"
+          git push -q --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            data
