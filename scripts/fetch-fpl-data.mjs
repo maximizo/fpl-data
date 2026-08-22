@@ -43,19 +43,12 @@ if (ev) {
   };
   await get(`/event/${ev}/fixtures`);
 
+  // picks for every team in every league (powers the league pages too)
   for (const t of TEAMS) {
     const d = await get(`/league/${t.leagueId}/details`);
-    const me = d.league_entries.find(e => e.id === t.leagueEntryId);
-    if (!me) continue;
-    const entryIds = new Set([me.entry_id]);
-    const m = (d.matches || []).find(m =>
-      m.event === ev && (m.league_entry_1 === me.id || m.league_entry_2 === me.id));
-    if (m) {
-      const oppLE = m.league_entry_1 === me.id ? m.league_entry_2 : m.league_entry_1;
-      const opp = d.league_entries.find(e => e.id === oppLE);
-      if (opp?.entry_id) entryIds.add(opp.entry_id);
+    for (const e of d.league_entries) {
+      if (e.entry_id) await get(`/entry/${e.entry_id}/event/${ev}`);
     }
-    for (const id of entryIds) await get(`/entry/${id}/event/${ev}`);
   }
 }
 
